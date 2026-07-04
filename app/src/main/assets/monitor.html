@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API额度监控</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #fff;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .card {
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .balance-section {
+            margin-bottom: 20px;
+        }
+        .balance-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            margin-bottom: 10px;
+        }
+        .balance-item:last-child {
+            margin-bottom: 0;
+        }
+        .balance-info {
+            display: flex;
+            flex-direction: column;
+        }
+        .balance-name {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 4px;
+        }
+        .balance-value {
+            font-size: 24px;
+            font-weight: 700;
+        }
+        .balance-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .status-good {
+            background: rgba(76, 175, 80, 0.3);
+            color: #4CAF50;
+        }
+        .status-warning {
+            background: rgba(255, 152, 0, 0.3);
+            color: #FF9800;
+        }
+        .status-error {
+            background: rgba(244, 67, 54, 0.3);
+            color: #F44336;
+        }
+        .progress-section {
+            margin-bottom: 20px;
+        }
+        .progress-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        .progress-bar {
+            height: 20px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            border-radius: 10px;
+            transition: width 0.5s ease;
+        }
+        .progress-text {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            opacity: 0.9;
+        }
+        .info-section {
+            margin-bottom: 20px;
+        }
+        .info-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .info-item:last-child {
+            border-bottom: none;
+        }
+        .info-label {
+            opacity: 0.9;
+        }
+        .info-value {
+            font-weight: 500;
+        }
+        .update-time {
+            text-align: center;
+            font-size: 14px;
+            opacity: 0.8;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+        }
+        .refresh-btn {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #2196F3, #1976D2);
+            border: none;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3);
+        }
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(33, 150, 243, 0.4);
+        }
+        .refresh-btn:active {
+            transform: translateY(0);
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        .loading.active {
+            display: block;
+        }
+        .spinner {
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top: 3px solid #fff;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 API额度监控</h1>
+            <p>实时监控您的API余额和使用情况</p>
+        </div>
+
+        <!-- 余额卡片 -->
+        <div class="card">
+            <div class="balance-section">
+                <div class="balance-item">
+                    <div class="balance-info">
+                        <div class="balance-name">三方中转 (sub2.aihuangniu.com)</div>
+                        <div class="balance-value" id="transitBalance">$--</div>
+                    </div>
+                    <div class="balance-status status-good" id="transitStatus">正常</div>
+                </div>
+                <div class="balance-item">
+                    <div class="balance-info">
+                        <div class="balance-name">DeepSeek</div>
+                        <div class="balance-value" id="deepseekBalance">$--</div>
+                    </div>
+                    <div class="balance-status status-good" id="deepseekStatus">正常</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 进度条 -->
+        <div class="card">
+            <div class="progress-section">
+                <div class="progress-title">💰 余额使用情况</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="transitProgress" style="width: 0%"></div>
+                </div>
+                <div class="progress-text">
+                    <span>已使用: $--</span>
+                    <span>剩余: $--</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 详细信息 -->
+        <div class="card">
+            <div class="info-section">
+                <div class="info-title">📋 详细信息</div>
+                <div class="info-item">
+                    <span class="info-label">套餐类型</span>
+                    <span class="info-value" id="planName">--</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">账户模式</span>
+                    <span class="info-value" id="accountMode">--</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">今日使用</span>
+                    <span class="info-value" id="todayUsage">$--</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">最后更新</span>
+                    <span class="info-value" id="lastUpdate">--:--:--</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 加载中提示 -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>正在查询余额...</p>
+        </div>
+
+        <!-- 刷新按钮 -->
+        <button class="refresh-btn" onclick="refreshBalances()">🔄 刷新余额</button>
+
+        <!-- 更新时间 -->
+        <div class="update-time">
+            <p id="updateTime">最后更新: --:--:--</p>
+        </div>
+    </div>
+
+    <script>
+        let transitApiKey = '';
+        let deepseekApiKey = '';
+
+        // 从Android获取API Key
+        function loadApiKeys() {
+            try {
+                if (typeof Android !== 'undefined') {
+                    transitApiKey = Android.getTransitApiKey();
+                    deepseekApiKey = Android.getDeepseekApiKey();
+                }
+            } catch (e) {
+                console.log('无法从Android获取API Key:', e);
+            }
+        }
+
+        // 查询三方中转余额
+        async function fetchTransitBalance() {
+            if (!transitApiKey) {
+                document.getElementById('transitBalance').textContent = '$--';
+                document.getElementById('transitStatus').textContent = '未配置';
+                document.getElementById('transitStatus').className = 'balance-status status-warning';
+                return;
+            }
+
+            try {
+                const response = await fetch('https://sub2.aihuangniu.com/v1/usage', {
+                    headers: {
+                        'Authorization': `Bearer ${transitApiKey}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const balance = data.balance;
+                    document.getElementById('transitBalance').textContent = `$${balance.toFixed(2)}`;
+                    document.getElementById('transitStatus').textContent = '正常';
+                    document.getElementById('transitStatus').className = 'balance-status status-good';
+                    
+                    // 更新进度条（假设初始余额为$20）
+                    const initialBalance = 20;
+                    const used = initialBalance - balance;
+                    const percentage = (used / initialBalance) * 100;
+                    document.getElementById('transitProgress').style.width = `${percentage}%`;
+                    document.getElementById('transitProgress').parentElement.nextElementSibling.innerHTML = 
+                        `<span>已使用: $${used.toFixed(2)}</span><span>剩余: $${balance.toFixed(2)}</span>`;
+                    
+                    // 更新详细信息
+                    document.getElementById('planName').textContent = data.planName || '钱包余额';
+                    document.getElementById('accountMode').textContent = data.mode || 'unrestricted';
+                    document.getElementById('todayUsage').textContent = `$${data.usage?.today?.actual_cost?.toFixed(2) || '0.00'}`;
+                } else {
+                    document.getElementById('transitBalance').textContent = '$--';
+                    document.getElementById('transitStatus').textContent = '查询失败';
+                    document.getElementById('transitStatus').className = 'balance-status status-error';
+                }
+            } catch (error) {
+                console.error('查询三方中转余额失败:', error);
+                document.getElementById('transitBalance').textContent = '$--';
+                document.getElementById('transitStatus').textContent = '网络错误';
+                document.getElementById('transitStatus').className = 'balance-status status-error';
+            }
+        }
+
+        // 查询DeepSeek余额
+        async function fetchDeepseekBalance() {
+            if (!deepseekApiKey) {
+                document.getElementById('deepseekBalance').textContent = '$--';
+                document.getElementById('deepseekStatus').textContent = '未配置';
+                document.getElementById('deepseekStatus').className = 'balance-status status-warning';
+                return;
+            }
+
+            try {
+                const response = await fetch('https://api.deepseek.com/user/balance', {
+                    headers: {
+                        'Authorization': `Bearer ${deepseekApiKey}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.balance_infos && data.balance_infos.length > 0) {
+                        const balance = data.balance_infos[0].balance;
+                        document.getElementById('deepseekBalance').textContent = `$${balance.toFixed(2)}`;
+                        document.getElementById('deepseekStatus').textContent = '正常';
+                        document.getElementById('deepseekStatus').className = 'balance-status status-good';
+                    } else {
+                        document.getElementById('deepseekBalance').textContent = '$0.00';
+                        document.getElementById('deepseekStatus').textContent = '无余额';
+                        document.getElementById('deepseekStatus').className = 'balance-status status-warning';
+                    }
+                } else {
+                    document.getElementById('deepseekBalance').textContent = '$--';
+                    document.getElementById('deepseekStatus').textContent = '查询失败';
+                    document.getElementById('deepseekStatus').className = 'balance-status status-error';
+                }
+            } catch (error) {
+                console.error('查询DeepSeek余额失败:', error);
+                document.getElementById('deepseekBalance').textContent = '$--';
+                document.getElementById('deepseekStatus').textContent = '网络错误';
+                document.getElementById('deepseekStatus').className = 'balance-status status-error';
+            }
+        }
+
+        // 刷新余额
+        async function refreshBalances() {
+            document.getElementById('loading').classList.add('active');
+            
+            try {
+                await Promise.all([
+                    fetchTransitBalance(),
+                    fetchDeepseekBalance()
+                ]);
+                
+                // 更新时间
+                const now = new Date();
+                const timeStr = now.toLocaleTimeString('zh-CN', { hour12: false });
+                document.getElementById('updateTime').textContent = `最后更新: ${timeStr}`;
+                document.getElementById('lastUpdate').textContent = timeStr;
+                
+                // 调用Android的刷新回调
+                if (typeof Android !== 'undefined') {
+                    Android.showToast('余额已刷新');
+                }
+            } catch (error) {
+                console.error('刷新余额失败:', error);
+                if (typeof Android !== 'undefined') {
+                    Android.showToast('刷新失败: ' + error.message);
+                }
+            } finally {
+                document.getElementById('loading').classList.remove('active');
+            }
+        }
+
+        // 页面加载时初始化
+        window.onload = function() {
+            loadApiKeys();
+            refreshBalances();
+            
+            // 每5分钟自动刷新
+            setInterval(refreshBalances, 5 * 60 * 1000);
+        };
+    </script>
+</body>
+</html>
