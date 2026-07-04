@@ -1,0 +1,85 @@
+name: Publish balance JSON
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/15 * * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch balance
+        env:
+          SUB2_API_KEY: ${{ secrets.SUB2_API_KEY }}
+        run: |
+          test -n "$SUB2_API_KEY"
+          mkdir -p docs
+          response=$(curl -fsSL -H "Authorization: Bearer $SUB2_API_KEY" https://sub2.aihuangniu.com/v1/usage)
+          RESPONSE="$response" python3 - <<"PY2"
+import json
+import os
+from datetime import datetime, timezone
+
+data = json.loads(os.environ["RESPONSE"])
+balance = float(data.get("balance", 0.0))
+actual_cost = float(data.get("usage", {}).get("total", {}).get("actual_cost", 0.0))
+remaining = float(data.get("remaining", balance))
+progress_pct = 0 if balance <= 0 else min(100, max(0, round(actual_cost / (actual_cost + remaining) * 100))) if (actual_cost + remaining) > 0 else 0
+payload = {
+    "display_balance": f"${balance:.2f}",
+    "display_detail": f"Used {progress_pct}%",
+    "progress_pct": progress_pct,
+    "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+}
+with open("docs/balance.json", "w", encoding="utf-8") as fh:
+    json.dump(payload, fh, ensure_ascii=False, separators=(",", ":"))
+PY2
+
+      - name: Write index page
+        run: |
+          cat > docs/index.html <<'HTML'
+          <!doctype html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width,initial-scale=1">
+            <title>API Balance</title>
+            <style>
+              body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:24px;background:#0b1020;color:#fff}
+              .card{max-width:520px;margin:0 auto;padding:24px;border-radius:24px;background:linear-gradient(180deg,#16203a,#0f172a);box-shadow:0 10px 30px rgba(0,0,0,.35)}
+              .muted{color:#9fb0d0}.value{font-size:56px;font-weight:700;margin:10px 0}.row{margin-top:8px}
+            </style>
+          </head>
+          <body>
+            <div class="card">
+              <div class="muted">API Balance</div>
+              <div class="value" id="balance">--</div>
+              <div class="row muted" id="detail">Loading...</div>
+              <div class="row muted" id="updated"></div>
+            </div>
+            <script>
+              fetch('./balance.json?_=' + Date.now()).then(r=>r.json()).then(data=>{
+                document.getElementById('balance').textContent = data.display_balance || '--';
+                document.getElementById('detail').textContent = data.display_detail || '';
+                document.getElementById('updated').textContent = 'Updated ' + (data.updated_at || '');
+              }).catch(()=>{ document.getElementById('detail').textContent='Failed to load'; });
+            </script>
+          </body>
+          </html>
+          HTML
+
+      - name: Commit docs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/balance.json docs/index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Publish latest balance"
+          git push
