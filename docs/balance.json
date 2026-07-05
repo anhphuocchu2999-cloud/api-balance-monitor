@@ -1,15 +1,1 @@
-{
-  "display_balance": "$4.92",
-  "display_detail": "Used 38%",
-  "progress_pct": 62,
-  "updated_at": "2026-07-05T07:42:55Z",
-  "deepseek_display": "¥4.22",
-  "mimo_display": "¥88.46",
-  "providers_display": "DeepSeek ¥4.22 | MiMo ¥88.46 | Sub2 .92",
-  "sub2_used": "$8.08",
-  "sub2_total": "$13",
-  "deepseek_used": "¥15.60",
-  "deepseek_total": "¥20",
-  "mimo_used": "¥61.54",
-  "mimo_total": "¥150"
-}
+{"display_balance":"$4.92","display_detail":"Used 62%","progress_pct":62,"updated_at":"2026-07-05T09:45:27Z","deepseek_display":"--","mimo_display":"--","providers_display":"DeepSeek --    MiMo --"}
