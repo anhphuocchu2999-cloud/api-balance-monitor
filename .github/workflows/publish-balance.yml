@@ -23,24 +23,26 @@ jobs:
           mkdir -p docs
           response=$(curl -fsSL -H "Authorization: Bearer $SUB2_API_KEY" https://sub2.aihuangniu.com/v1/usage)
           RESPONSE="$response" python3 - <<"PY2"
-import json
-import os
-from datetime import datetime, timezone
+          import json
+          import os
+          from datetime import datetime, timezone
 
-data = json.loads(os.environ["RESPONSE"])
-balance = float(data.get("balance", 0.0))
-actual_cost = float(data.get("usage", {}).get("total", {}).get("actual_cost", 0.0))
-remaining = float(data.get("remaining", balance))
-progress_pct = 0 if balance <= 0 else min(100, max(0, round(actual_cost / (actual_cost + remaining) * 100))) if (actual_cost + remaining) > 0 else 0
-payload = {
-    "display_balance": f"${balance:.2f}",
-    "display_detail": f"Used {progress_pct}%",
-    "progress_pct": progress_pct,
-    "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-}
-with open("docs/balance.json", "w", encoding="utf-8") as fh:
-    json.dump(payload, fh, ensure_ascii=False, separators=(",", ":"))
-PY2
+          data = json.loads(os.environ["RESPONSE"])
+          balance = float(data.get("balance", 0.0))
+          actual_cost = float(data.get("usage", {}).get("total", {}).get("actual_cost", 0.0))
+          remaining = float(data.get("remaining", balance))
+          progress_pct = 0
+          if (actual_cost + remaining) > 0:
+              progress_pct = min(100, max(0, round(actual_cost / (actual_cost + remaining) * 100)))
+          payload = {
+              "display_balance": f"${balance:.2f}",
+              "display_detail": f"Used {progress_pct}%",
+              "progress_pct": progress_pct,
+              "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+          }
+          with open("docs/balance.json", "w", encoding="utf-8") as fh:
+              json.dump(payload, fh, ensure_ascii=False, separators=(",", ":"))
+          PY2
 
       - name: Write index page
         run: |
