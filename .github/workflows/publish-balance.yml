@@ -31,6 +31,17 @@ jobs:
           balance = float(data.get("balance", 0.0))
           actual_cost = float(data.get("usage", {}).get("total", {}).get("actual_cost", 0.0))
           remaining = float(data.get("remaining", balance))
+          model_stats = data.get("model_stats", [])
+
+          def provider_display(keyword: str) -> str:
+              matched = [item for item in model_stats if keyword in str(item.get("model", "")).lower()]
+              if not matched:
+                  return "--"
+              total = sum(float(item.get("actual_cost", 0.0) or 0.0) for item in matched)
+              return f"${total:.2f}"
+
+          deepseek_display = provider_display("deepseek")
+          mimo_display = provider_display("mimo")
           progress_pct = 0
           if (actual_cost + remaining) > 0:
               progress_pct = min(100, max(0, round(actual_cost / (actual_cost + remaining) * 100)))
@@ -38,7 +49,10 @@ jobs:
               "display_balance": f"${balance:.2f}",
               "display_detail": f"Used {progress_pct}%",
               "progress_pct": progress_pct,
-              "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+              "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "deepseek_display": deepseek_display,
+              "mimo_display": mimo_display,
+              "providers_display": f"DeepSeek {deepseek_display}    MiMo {mimo_display}"
           }
           with open("docs/balance.json", "w", encoding="utf-8") as fh:
               json.dump(payload, fh, ensure_ascii=False, separators=(",", ":"))
